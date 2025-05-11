@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Car Tracking System | Find Any Location</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #4361ee;
+            --secondary: #3f37c9;
+            --accent: #4895ef;
+            --light: #f8f9fa;
+            --dark: #212529;
+            --success: #4cc9f0;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --transition: all 0.3s ease;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: var(--dark);
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 30px auto;
+            background-color: white;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            animation: fadeIn 0.8s ease-out;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 8px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+        }
+        
+        h1 {
+            text-align: center;
+            color: var(--primary);
+            margin-bottom: 20px;
+            font-weight: 600;
+            font-size: 2.2rem;
+            position: relative;
+            padding-bottom: 10px;
+        }
+        
+        h1::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80px;
+            height: 4px;
+            background: var(--accent);
+            border-radius: 2px;
+        }
+        
+        .description {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #666;
+            font-size: 1rem;
+        }
+        
+        .input-group {
+            margin-bottom: 25px;
+        }
+        
+        .coordinates {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        
+        .coordinates div {
+            flex: 1;
+            position: relative;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: var(--dark);
+            transition: var(--transition);
+        }
+        
+        input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: var(--transition);
+        }
+        
+        input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(72, 149, 239, 0.2);
+        }
+        
+        .input-highlight {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 2px;
+            width: 0;
+            background-color: var(--accent);
+            transition: var(--transition);
+        }
+        
+        input:focus ~ .input-highlight {
+            width: 100%;
+        }
+        
+        button {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            border: none;
+            padding: 14px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 500;
+            display: block;
+            width: 100%;
+            transition: var(--transition);
+            box-shadow: var(--shadow);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        button::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(
+                to bottom right,
+                rgba(255, 255, 255, 0.3),
+                rgba(255, 255, 255, 0.1)
+            );
+            transform: rotate(30deg);
+            transition: var(--transition);
+        }
+        
+        button:hover::after {
+            left: 100%;
+        }
+        
+        #map {
+            height: 400px;
+            margin-top: 30px;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            opacity: 0;
+            transform: scale(0.95);
+            transition: var(--transition);
+        }
+        
+        #map.loaded {
+            opacity: 1;
+            transform: scale(1);
+        }
+        
+        #address {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid var(--accent);
+            opacity: 0;
+            transform: translateY(10px);
+            transition: var(--transition);
+        }
+        
+        #address.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        .loading-spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(67, 97, 238, 0.2);
+            border-radius: 50%;
+            border-top-color: var(--primary);
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .current-location {
+            margin-top: 15px;
+            text-align: center;
+        }
+        
+        .current-location button {
+            background: linear-gradient(135deg, var(--success), #3a86ff);
+            width: auto;
+            display: inline-block;
+            padding: 10px 20px;
+            font-size: 0.9rem;
+        }
+
+        .carposition {
+            margin-top: 15px;
+            text-align: center;
+        }
+
+        .carposition button {
+            background: linear-gradient(135deg, var(--success), #33548a);  
+        }
+        
+        @media (max-width: 768px) {
+            .coordinates {
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .container {
+                padding: 20px;
+            }
+            
+            h1 {
+                font-size: 1.8rem;
+            }
+        }
+
+        footer.footer {
+                max-width: 900px;
+                margin: 20px auto;
+                background-color: var(--accent);
+                color: var(--light);
+                text-align: center;
+                padding: 15px;
+                border-radius: 12px;
+                box-shadow: var(--shadow);
+                transition: var(--transition);
+                font-family: 'Poppins', sans-serif;
+        }
+
+            footer.footer a {
+                color: var(--dark);
+                text-decoration: none;
+                transition: color 0.3s;
+            }
+
+            footer.footer a:hover {
+                color: var(--success);
+            }
+
+
+
+
+
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Car Tracking System</h1>
+        <p class="description">Enter coordinates to find any location on Earth</p>
+        
+        <div class="input-group coordinates">
+            <div>
+                <label for="latitude">Latitude</label>
+                <input type="text" id="latitude" placeholder="e.g., 40.7128">
+                <span class="input-highlight"></span>
+            </div>
+            <div>
+                <label for="longitude">Longitude</label>
+                <input type="text" id="longitude" placeholder="e.g., -74.0060">
+                <span class="input-highlight"></span>
+            </div>
+        </div>
+        
+        <button id="findLocation">
+            <span id="buttonText">Find Location</span>
+        </button>
+
+
+        <div class="carposition">
+            <button id="getcarposition">
+                <span id="buttonText">Find Car Position</span>
+            </button>
+        </div>
+        
+        <div class="current-location">
+            <button id="getCurrentLocation">
+                <i class="fas fa-location-arrow"></i> Use My Current Location
+            </button>
+        </div>
+        
+        <div class="loading">
+            <div class="loading-spinner"></div>
+            <p>Finding location...</p>
+        </div>
+        
+        <div id="map"></div>
+        <div id="address"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
+    <script src="script.js"></script>
+
+</body>
+
+
+
+<footer class="footer">
+  Created by 
+  <a href="https://www.linkedin.com/in/omar-y-kamal/" 
+     target="_blank" 
+     rel="noopener noreferrer">
+     Omar Yasser
+  </a>
+</footer>
+
+
+</html>
